@@ -1,0 +1,45 @@
+TeamSpeak plugin for Big Brother Bot (www.bigbrotherbot.net)
+============================================================
+
+By Courgette
+
+
+Description
+-----------
+
+This plugin will change players that are found on your teamspeak
+server to the relevant team channel.
+
+
+Player commands
+---------------
+ !teamspeak   : give info about the Teamspeak server (ip:port) and instruction on how to use this plugin
+ !tsauto on   : make B3 automatically change you to your team channel when you change teams in game 
+ !tsauto off  : disable auto channel changes
+
+Admin commands
+--------------
+ !tsreconnect : force B3 to reconnect to the TeamSpeak server
+ !tsdisconnect : disconnect B3 from the TeamSpeak server
+ 
+
+
+Changelog
+---------
+
+
+ 
+Installation
+------------
+
+ * copy teamspeak.py into b3/extplugins
+ * copy plugin_teamspeak.xml into your B3 conf folder
+ * edit plugin_teamspeak.xml with your teamspeak server information
+ * update your main b3 config file with :
+<plugin name="teamspeak" config="@conf/extplugins/plugin_teamspeak.xml"/>
+
+
+Support
+-------
+
+see the B3 forums : http://www.bigbrotherbot.net/forums/plugins-by-courgette/teamspeak/
