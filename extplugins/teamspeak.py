@@ -19,7 +19,8 @@
 #
 # CHANGELOG :
 #
-#
+# 2011-04-17 - 0.1 - Courgette
+# - first release
 
 
 __version__ = '0.1'

@@ -27,6 +27,8 @@ Admin commands
 Changelog
 ---------
 
+2011-04-17 - 0.1 - Courgette
+ - first release
 
  
 Installation
@@ -38,8 +40,3 @@ Installation
  * update your main b3 config file with :
 <plugin name="teamspeak" config="@conf/extplugins/plugin_teamspeak.xml"/>
 
-
-Support
--------
-
-see the B3 forums : http://www.bigbrotherbot.net/forums/plugins-by-courgette/teamspeak/
