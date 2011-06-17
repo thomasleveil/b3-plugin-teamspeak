@@ -21,9 +21,10 @@
 #
 # 2011-04-17 - 0.1 - Courgette
 # - first release
-
-
-__version__ = '0.1'
+# 2011-06-18 - 0.2 - Courgette
+# - when a client joins the game and is found on TS, he is moved to the B3 TS channel
+#
+__version__ = '0.2'
 __author__ = 'Courgette'
 
 import time, string
@@ -92,6 +93,7 @@ class TeamspeakPlugin(b3.plugin.Plugin):
         # Register our events
         self.verbose('Registering events')
         self.registerEvent(b3.events.EVT_CLIENT_TEAM_CHANGE)
+        self.registerEvent(b3.events.EVT_CLIENT_AUTH)
     
         self.debug('Started')
 
@@ -173,23 +175,37 @@ class TeamspeakPlugin(b3.plugin.Plugin):
         """\
         Handle intercepted events
         """
+        client = event.client
         if event.type == b3.events.EVT_STOP:
             self.tsDeleteChannels()
             self.tsconnection.disconnect()
-            
-        if self.connected == False:
+        elif self.connected == False:
             return
+        elif event.type == b3.events.EVT_CLIENT_TEAM_CHANGE and client:
+            try:
+                self.moveClient(client)
+            except TS3Error, err:
+                self.error(str(err))
+        elif event.type == b3.events.EVT_CLIENT_AUTH and client:
+            try:
+                tsclient = self.tsGetClient(client)
+                if not tsclient:
+                    self.debug('cannot find %s client info from TS' % client.name)
+                else:
+                    if not self.tsIsClientInB3Channel(tsclient):
+                        ## we only act on players not found within the B3 channels
+                        self.debug('moving %s to B3 channel' % client.name)
+                        self.tsMoveTsclientToChannelId(tsclient, self.tsChannelIdB3)
+            except TS3Error, err:
+                self.error(str(err))
 
-        if event.type == b3.events.EVT_CLIENT_TEAM_CHANGE:
-            client = event.client
-            if client:
-                try:
-                    self.moveClient(client)
-                except TS3Error, err:
-                    self.error(str(err))
 
-
-
+    #===============================================================================
+    # 
+    #    B3 Commands implementations 
+    # 
+    #===============================================================================
+    
     def cmd_tsreconnect(self ,data , client, cmd=None):
         """\
         Reconnect B3 to the Teamspeak server
@@ -268,6 +284,13 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                     client.message('You will be automatically switched on your team channel')
                     self.moveClient(client)
 
+
+    #===============================================================================
+    # 
+    #    Others
+    # 
+    #===============================================================================
+
     def moveClient(self, client):
         """Move the client to its team depending on his settings"""
         if client:
@@ -292,6 +315,14 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                 else:
                     self.debug('moving %s to B3 channel' % client.cid)
                     self.tsMoveTsclientToChannelId(tsclient, self.tsChannelIdB3)
+
+
+    
+    #===========================================================================
+    # 
+    # TeamSpeak related methods
+    # 
+    #===========================================================================
     
     def tsSendCommand(self, cmd, parameter={}, option=[]):
         if self.connected:
@@ -431,7 +462,7 @@ class TeamspeakPlugin(b3.plugin.Plugin):
         if clientlist:
             for c in clientlist:
                 nick = c['client_nickname'].lower()
-                if nick in (client.name.lower(), client.cid.lower()):
+                if nick in (client.name.lower()):
                     data = self.tsSendCommand('clientinfo', {'clid': c['clid']})
                     self.debug('client data : %s' % data)
                     data['clid'] = c['clid']

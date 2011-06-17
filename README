@@ -30,6 +30,10 @@ Changelog
 2011-04-17 - 0.1 - Courgette
  - first release
 
+2011-06-18 - 0.2 - Courgette
+ - when a client joins the game and is found on TS, he is moved to the B3 TS channel
+
+
  
 Installation
 ------------
