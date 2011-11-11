@@ -23,8 +23,11 @@
 # - first release
 # 2011-06-18 - 0.2 - Courgette
 # - when a client joins the game and is found on TS, he is moved to the B3 TS channel
+# 2011-11-11 - 1.0 - Courgette
+# - added commands !teamspeak join and !teamspeak disjoin go get moved into/out of B3 managed channel
+# - players are not required to use the same name in-game and on TS as long as we have access to their IP
 #
-__version__ = '0.2'
+__version__ = '1.0'
 __author__ = 'Courgette'
 
 import time, string
@@ -192,10 +195,13 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                 if not tsclient:
                     self.debug('cannot find %s client info from TS' % client.name)
                 else:
-                    if not self.tsIsClientInB3Channel(tsclient):
-                        ## we only act on players not found within the B3 channels
-                        self.debug('moving %s to B3 channel' % client.name)
-                        self.tsMoveTsclientToChannelId(tsclient, self.tsChannelIdB3)
+                    teamspeak_cmd =  self._adminPlugin._commands['teamspeak']
+                    command_name = teamspeak_cmd.alias if teamspeak_cmd.alias else 'teamspeak'
+                    if self.tsIsClientInB3Channel(tsclient):
+                        self.tsTellClient(tsclient['clid'], "Hi, %s found you on our \"%s\" gameserver. Type !%s in game to unlink B3 and TS3" % (self.console.name, self.console.game.sv_hostname, command_name))
+                    else:
+                        self.tsTellClient(tsclient['clid'], "Hi, %s found you on our \"%s\" gameserver. Type !%s in game to link B3 and TS3" % (self.console.name, self.console.game.sv_hostname, command_name))
+                    self.tsTellClient(tsclient['clid'], "Join the \"%s\" channel" % self.TS3ChannelB3)
             except TS3Error, err:
                 self.error(str(err))
 
@@ -245,16 +251,23 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                     client.message('Use the same name on Teamspeak as in game to be auto switch to the right channel')
                 else:
                     client.message('You are connected on our Teamspeak server')
+                    if data == 'join':
+                        client.setvar(self, 'original_ts_channel', tsclient['cid'])
+                        self.tsMoveTsclientToChannelId(tsclient, self.tsChannelIdB3)
+                        tsclient['cid'] = self.tsChannelIdB3
+                    elif data == 'disjoin':
+                        original_channel = client.var(self, 'original_ts_channel', 1).value
+                        self.tsMoveTsclientToChannelId(tsclient, original_channel)
+                        tsclient['cid'] = original_channel
                     if not self.tsIsClientInB3Channel(tsclient):
-                        client.message('If you want to be switched automatically to your team channel, enter the %s channel' % self.TS3ChannelB3)
+                        client.message('If you want to be switched automatically to your team channel, enter the %s channel or type !teamspeak join' % self.TS3ChannelB3)
                     else:
+                        client.message('If you want to be leave the "%s" TS channel, !teamspeak disjoin' % self.TS3ChannelB3)
                         autoswitch = client.var(self, 'autoswitch', self.autoswitchDefault).value
                         if autoswitch is False:
-                            client.message('You will not be switched automatically to your team channel')
-                            client.message('To get switched your team channel, type : !tsauto on')
+                            client.message('You are not in auto-switch mode. To be automatically switched to your team channel, type !tsauto on')
                         else:
-                            client.message('You will be switched automatically to your team channel')
-                            client.message('type: "!tsauto off" to disable TeamSpeak autoswitch')
+                            client.message('You are not in auto-switch mode. To be automatically switched to your team channel, type !tsauto off')
             else:
                 client.message('Teamspeak server not available')
 
@@ -342,10 +355,14 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                 ## invalid serverID
                 self.tsconnection.command('use', {'sid': self.TS3ServerID})
                 return self._tsSendCommand(cmd, parameter, option, numtries+1)
-            elif err.code == 12: 
+            elif err.code == 12:
                 ## Bad TS3 response
                 self.tsConnect()
                 return self._tsSendCommand(cmd, parameter, option, numtries+1)
+            elif err.code == 3331:
+                ## Flood ban
+                self.error("The teamspeak server banned B3 for flooding commands. Add B3 ip to the teamspeak server whitelist file called query_ip_whitelist.txt")
+                return
             else:
                 raise
         except telnetlib.socket.error, err:
@@ -458,15 +475,31 @@ class TeamspeakPlugin(b3.plugin.Plugin):
         if not client:
             return None
         clientlist = self.tsSendCommand('clientlist')
-        #self.debug('clientlist: %s' % clientlist)
-        if clientlist:
+        self.debug('clientlist: %s' % clientlist)
+        if client.ip is not None:
+            clients_info = {}
+            matches_by_ip = []
+            matches_by_name = []
+
             for c in clientlist:
-                nick = c['client_nickname'].lower()
+                clid = c['clid']
+                clients_info[clid] = info = self.tsSendCommand('clientinfo', {'clid': clid})
+                if client.ip and 'connection_client_ip' in info and info['connection_client_ip'] == client.ip:
+                    matches_by_ip.append(clid)
+                nick = info['client_nickname'].lower()
                 if nick in (client.name.lower()):
-                    data = self.tsSendCommand('clientinfo', {'clid': c['clid']})
-                    self.debug('client data : %s' % data)
-                    data['clid'] = c['clid']
-                    return data
+                    matches_by_name.append(clid)
+
+            found_client_data = None
+            if len(matches_by_ip) == 1:
+                self.verbose("found teamspeak client by ip (%s)" % client.ip)
+                found_client_data = clients_info[matches_by_ip[0]]
+                found_client_data['clid'] = matches_by_ip[0]
+            else:
+                if len(matches_by_name) > 0:
+                    found_client_data = clients_info[matches_by_name[0]]
+                    found_client_data['clid'] = matches_by_name[0]
+            return found_client_data
         return None
     
         
@@ -506,7 +539,9 @@ class TeamspeakPlugin(b3.plugin.Plugin):
             return True
         return False
     
-        
+    def tsTellClient(self, clid, msg):
+        """Send a private message to a TS3 client"""
+        self.tsSendCommand('sendtextmessage', {'targetmode': 3, 'target': clid, 'msg': "[%s] %s" % (self.console.name, msg)})
     
     
 ##################################################################################################
@@ -760,112 +795,3 @@ class ServerNotification(ServerQuery):
         self.command('servernotifyunregister')
         
 
-##################################################################################################
-
-
-if __name__ == '__main__':
-    from b3.fake import fakeConsole
-    from b3.fake import joe
-    import time
-    
-    from b3.config import XmlConfigParser
-    
-    conf = XmlConfigParser()
-    conf.setXml("""
-    <configuration plugin="teamspeak">
-       <settings name="teamspeakServer">
-          <set name="host">www.cucurb.net</set>
-          <set name="queryport">10011</set>
-          <set name="id">1</set>
-          <set name="login">b3test</set>
-          <set name="password">Q3Z8icLV</set>
-       </settings>
-       <settings name="teamspeakChannels">
-          <set name="B3">B3 autoswitched channel</set>
-          <set name="team1">Team 1</set>
-          <set name="team2">Team 2</set>
-       </settings>
-       <settings name="commands">
-          <set name="tsreconnect">100</set>
-          <set name="tsdisconnect">100</set>
-          <set name="teamspeak-ts">0</set>
-          <set name="tsauto-tsa">0</set>
-       </settings>
-    </configuration>
-    """)
-
-    
-    ## create an instance of the plugin to test
-    p = TeamspeakPlugin(fakeConsole, conf)
-    p.onStartup()
-    
-    joe.team = b3.TEAM_UNKNOWN
-    joe.connects('Joe')
-        
-    import unittest
-    
-    class TestTeamspeak(unittest.TestCase):
-        
-        def test_cmd_ts(self):
-            joe.clearMessageHistory()
-            joe.says('!ts')
-            self.assertNotEqual(0, len(joe.message_history))
-        
-        def test_cmd_tsauto(self):
-            joe.clearMessageHistory()
-            joe.says('!tsauto')
-            self.assertNotEqual(0, len(joe.message_history))
-
-            joe.clearMessageHistory()
-            joe.says('!tsauto off')
-            self.assertNotEqual(0, len(joe.message_history))
-            self.assertEqual('You will not be automatically switched on teamspeak', joe.getMessageHistoryLike('You will'))
-            
-            joe.clearMessageHistory()
-            joe.says('!tsauto on')
-            self.assertNotEqual(0, len(joe.message_history))
-            self.assertEqual('You will be automatically switched on your team channel', joe.getMessageHistoryLike('You will'))
-
-            joe.clearMessageHistory()
-            joe.says('!tsauto qsdfqsd f')
-            self.assertNotEqual(0, len(joe.message_history))
-            self.assertNotEqual(None, joe.getMessageHistoryLike('Invalid parameter'))
-            
-            joe.clearMessageHistory()
-            joe.says('!tsauto    ')
-            self.assertNotEqual(0, len(joe.message_history))
-            self.assertNotEqual(None, joe.getMessageHistoryLike('Invalid parameter'))
-        
-        def test_teamMisc(self):
-            joe.team = b3.TEAM_SPEC
-            tsclient = p.tsGetClient(joe)
-            self.assertNotEqual(tsclient, None)
-            self.assertEqual(tsclient['cid'], p.tsChannelIdB3)
-
-        def test_team1(self):
-            joe.team = b3.TEAM_BLUE
-            tsclient = p.tsGetClient(joe)
-            self.assertNotEqual(tsclient, None)
-            self.assertEqual(tsclient['cid'], p.tsChannelIdTeam1)
-        
-        def test_team2(self):
-            joe.team = b3.TEAM_RED
-            tsclient = p.tsGetClient(joe)
-            self.assertNotEqual(tsclient, None)
-            self.assertEqual(tsclient['cid'], p.tsChannelIdTeam2)
-
-    def donothing(*whatever):
-        pass
-    fakeConsole.error = donothing
-    fakeConsole.debug = donothing
-    fakeConsole.bot = donothing
-    fakeConsole.verbose = donothing
-    fakeConsole.verbose2 = donothing
-    fakeConsole.console = donothing
-    fakeConsole.warning = donothing
-    fakeConsole.info = donothing
-    fakeConsole.exception = donothing
-    fakeConsole.critical = donothing
-
-    joe.says('!tsauto on')
-    unittest.main()
