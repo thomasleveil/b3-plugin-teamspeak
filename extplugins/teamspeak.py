@@ -26,15 +26,15 @@
 # 2011-11-11 - 1.0 - Courgette
 # - added commands !teamspeak join and !teamspeak disjoin go get moved into/out of B3 managed channel
 # - players are not required to use the same name in-game and on TS as long as we have access to their IP
+# 2011-11-11 - 1.0 - Courgette
+# - fixes a message
 #
-__version__ = '1.0'
+__version__ = '1.1'
 __author__ = 'Courgette'
 
-import time, string
 import b3
 import b3.events
 import b3.plugin
-import string
 
 #--------------------------------------------------------------------------------------------------
 class TeamspeakPlugin(b3.plugin.Plugin):
@@ -267,7 +267,7 @@ class TeamspeakPlugin(b3.plugin.Plugin):
                         if autoswitch is False:
                             client.message('You are not in auto-switch mode. To be automatically switched to your team channel, type !tsauto on')
                         else:
-                            client.message('You are not in auto-switch mode. To be automatically switched to your team channel, type !tsauto off')
+                            client.message('You are not in auto-switch mode. To stop being automatically switched to your team channel, type !tsauto off')
             else:
                 client.message('Teamspeak server not available')
 
