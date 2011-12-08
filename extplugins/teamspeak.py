@@ -26,7 +26,7 @@
 # 2011-11-11 - 1.0 - Courgette
 # - added commands !teamspeak join and !teamspeak disjoin go get moved into/out of B3 managed channel
 # - players are not required to use the same name in-game and on TS as long as we have access to their IP
-# 2011-11-11 - 1.0 - Courgette
+# 2011-11-11 - 1.1 - Courgette
 # - fixes a message
 #
 __version__ = '1.1'
