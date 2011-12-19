@@ -43,6 +43,11 @@ Changelog
 2011-12-08 - 1.1 - Courgette
  - fixes a message
 
+2011-12-19 - 1.2 - Courgette
+ - fixes issue with deleting B3 channels on bot shutdown
+ - fixes issue about B3 talking to the TS channel chat instead of TS private chat
+ - add tests
+
 
 
 Installation

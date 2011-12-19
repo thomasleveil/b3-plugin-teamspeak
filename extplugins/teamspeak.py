@@ -28,8 +28,12 @@
 # - players are not required to use the same name in-game and on TS as long as we have access to their IP
 # 2011-12-08 - 1.1 - Courgette
 # - fixes a message
+# 2011-12-19 - 1.2 - Courgette
+# - fixes issue with deleting B3 channels on bot shutdown
+# - fixes issue about B3 talking to the TS channel chat instead of TS private chat
+# - add unittests
 #
-__version__ = '1.1'
+__version__ = '1.2'
 __author__ = 'Courgette'
 
 import b3
@@ -180,8 +184,12 @@ class TeamspeakPlugin(b3.plugin.Plugin):
         """
         client = event.client
         if event.type == b3.events.EVT_STOP:
-            self.tsDeleteChannels()
+            try:
+                self.tsDeleteChannels()
+            except TS3Error, err:
+                self.error(err)
             self.tsconnection.disconnect()
+            self.connected = False
         elif self.connected == False:
             return
         elif event.type == b3.events.EVT_CLIENT_TEAM_CHANGE and client:
@@ -447,7 +455,7 @@ class TeamspeakPlugin(b3.plugin.Plugin):
             
     def tsDeleteChannels(self):
         if self.connected:
-            self.tsSendCommand('channeldelete', {'cid': self.tsChannelIdB3})
+            self.tsSendCommand('channeldelete', {'cid': self.tsChannelIdB3, 'force': 1})
             self.tsChannelIdB3 = None
             self.tsChannelIdTeam1 = None
             self.tsChannelIdTeam2 = None
@@ -541,7 +549,7 @@ class TeamspeakPlugin(b3.plugin.Plugin):
     
     def tsTellClient(self, clid, msg):
         """Send a private message to a TS3 client"""
-        self.tsSendCommand('sendtextmessage', {'targetmode': 3, 'target': clid, 'msg': "[%s] %s" % (self.console.name, msg)})
+        self.tsSendCommand('sendtextmessage', {'targetmode': 1, 'target': clid, 'msg': "[%s] %s" % (self.console.name, msg)})
     
     
 ##################################################################################################

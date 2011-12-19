@@ -1,6 +1,6 @@
 # -*- encoding: utf-8 -*-
 import time
-from test import *
+from tests import *
 prepare_fakeparser_for_tests()
 
 
