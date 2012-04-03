@@ -11,6 +11,12 @@ This plugin will change players that are found on your teamspeak
 server to the relevant team channel.
 
 
+Requirements
+------------
+
+You must have a Teamspeak 3 server.
+
+
 Player commands
 ---------------
  !teamspeak   : give info about the Teamspeak server (ip:port) and instruction on how to use this plugin
@@ -19,6 +25,7 @@ Player commands
  !ts disjoin  : moves you back out of the B3 managed channel on TS
  !tsauto on   : make B3 automatically change you to your team channel when you change teams in game 
  !tsauto off  : disable auto channel changes
+
 
 Admin commands
 --------------
